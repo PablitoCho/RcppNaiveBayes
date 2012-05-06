@@ -1,0 +1,4 @@
+[Project]
+Name=RcppNaiveBayes
+Manager=KDevCMakeManager
+VersionControl=kdevgit
