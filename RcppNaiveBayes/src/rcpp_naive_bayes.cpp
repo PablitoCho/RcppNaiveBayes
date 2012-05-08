@@ -72,13 +72,7 @@ List NaiveBayesFeature (List category_in)
 SEXP NaiveBayesTrain (SEXP categories_in)
 {
     BEGIN_RCPP
-    /**
-     * 1. count categories
-     * 2. for each category, use @fun NaiveBayesFeature to return
-     * a feature/probability list
-     * 3. combines all list and names
-    **/
-    // TODO use iterator
+
     List categories (categories_in); //conversion
     int categoryCount = categories.size();
     List featuresList (categoryCount);
@@ -92,7 +86,7 @@ SEXP NaiveBayesTrain (SEXP categories_in)
         total += prior[i];
     }
 
-    // calculate priors
+    // calculate prior
     for (int i = 0; i < categoryCount; ++i) {
 #ifdef DEBUG
         printf ("DEBUG NaiveBayesTrain: %f\n", prior[i]);
@@ -112,7 +106,7 @@ SEXP NaiveBayesTrain (SEXP categories_in)
 
 
 /**
- * @brief Predict the category from @p NB for @p unknown
+ * @brief Predict the category from NB for unknown
  *
  * @param NB a RcppNaiveBayes class
  * @param unknown an observations to classify
@@ -122,54 +116,68 @@ SEXP NaiveBayesTrain (SEXP categories_in)
 SEXP NaiveBayesPredict (SEXP NBT_in, SEXP unknown_in)
 {
     BEGIN_RCPP
-    std::vector<std::string>  unknown = as<std::vector<std::string> > (unknown_in);
-    int wordsCount = unknown.size();
-
     List NBT (NBT_in);
-
+    std::vector<std::string> unknown = as<std::vector<std::string> > (unknown_in);
+    std::vector<std::string>::iterator  unknown_it;
     std::vector<double> prior = NBT["prior"];
-    std::vector<double>::iterator it;
-#ifdef DEBUG
-    for (it = prior.begin(); it != prior.end(); ++it) {
-        printf ("%f ", *it);
-    }
-#endif
     List featuresList = NBT["features"];
     int categoryCount = as<int> (NBT["categories"]);
-
-#ifdef DEBUG
-    printf ("DEBUG: %d\n", categoryCount);
-#endif
+    double zero = 0.0f;
 
     std::vector<double> scores (categoryCount);
 
+    // This is a short-term loop, as categoriesCount is assumed to be less than 100 in practice
     for (int i = 0; i < categoryCount; ++i) {
+
+        scores[i] = prior[i];
         List thefeature = featuresList[i];
-        double zero = as<double> (thefeature["zero"]);
         std::vector<std::string> features = thefeature["features"];
         std::vector<double> probabilities = thefeature["probabilities"];
-        scores[i] = prior[i];
-        int found = -1;
-        for (int j = 0; j < wordsCount; ++j) {
-            for (int k = 0; k < features.size(); ++k) {
-                // TODO if words in features
-                if (features[k].compare (unknown[j]) == 0) {
-                    found = k;
-                    break;
+        zero = as<double> (thefeature["zero"]);
+        for (unknown_it = unknown.begin(); unknown_it != unknown.end();
+                ++unknown_it) {
+            // features.size() may be too large!
+            for (int j = 0; j < features.size(); ++j) {
+                // string compare is somewhat slow!
+                if (features[j].compare (*unknown_it) == 0) {
+                    scores[i] *= probabilities[j];
+                    goto ENDCOMPARE;
                 }
             }
-            if (found != -1) {
-                scores[i] *= probabilities[found];
-                found = -1;
-            } else {
-                scores[i] *= zero;
-            }
+            scores[i] *= zero;
+        ENDCOMPARE:; //
         }
+
     }
 
     List z = List::create (_["scores"] = scores);
+
     return z;
     END_RCPP
+}
+
+/**
+ * @brief A prediction dispatcher
+ *
+ * @param NBT_in the model return by NaiveBayesTrain
+ * @param unknown_in a string vector or a list of string vectors
+ * @param isList_in a flag to indicate if unknown_in is a List
+ * @return SEXP s list of scores for each case
+ **/
+
+SEXP NaiveBayesPredict (SEXP NBT_in, SEXP unknown_in, SEXP isList_in)
+{
+    int isList = as<int> (isList_in);
+    if (isList) {
+        List cases (unknown_in);
+        List predictList (cases.size());
+        for (int i = 0; i < cases.size(); i++) {
+            predictList[i] = NaiveBayesPredict (NBT_in, cases[i]);
+        }
+        return predictList;
+    } else {
+        return NaiveBayesPredict (NBT_in, unknown_in);
+    }
 }
 
 // kate: indent-mode cstyle; indent-width 4; replace-tabs on; ;

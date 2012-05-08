@@ -15,6 +15,5 @@
  * on Rcpp-devel for a misuse of RcppExport
  */
 RcppExport SEXP NaiveBayesTrain(SEXP) ;
-RcppExport SEXP NaiveBayesPredict(SEXP,SEXP) ;
-
+RcppExport SEXP NaiveBayesPredict(SEXP,SEXP,SEXP);
 #endif

@@ -14,11 +14,12 @@ NaiveBayesTrain <- function(x){
 NaiveBayesPredict <- function(x,y){
     stopifnot(class(x) == "RcppNaiveBayes")
     ## only on observation
-    if(is.character(y))
-        .Call("NaiveBayesPredict", x, y, PACKAGE = "RcppNaiveBayes" )
-#     else if (is.list(y)) {
-#         for (i in 1:length(y))
-#             if(is.character(y))
-#             .Call( "NaiveBayesPredict", x, y[[i]], PACKAGE = "RcppNaiveBayes" )
-#     }
+    if(is.character(y)) {
+        .Call("NaiveBayesPredict", x, y, 0L, PACKAGE = "RcppNaiveBayes" )
+    } else if (is.list(y) && length(y) > 0) {
+            if(is.character(y[[1]]))
+            .Call( "NaiveBayesPredict", x, y, 1L, PACKAGE = "RcppNaiveBayes" )
+    } else {
+        stop("Requires a list of string vectors or a string vector")
+    }
 }
