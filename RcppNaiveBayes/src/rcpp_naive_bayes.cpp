@@ -1,7 +1,4 @@
 #include "rcpp_naive_bayes.h"
-// #define DEBUG
-// TODO make use of std::transform(input.begin(), input.end(), output.begin(), f);
-
 // TODO namespace issue
 
 using namespace Rcpp;
@@ -17,7 +14,6 @@ using namespace Rcpp;
 List NaiveBayesFeature (List category_in)
 {
     BEGIN_RCPP
-
     int caseCount = category_in.size();
     double singleOccurrence = 1.0f / caseCount ;
     double zeroOccurrence = singleOccurrence;
@@ -40,29 +36,13 @@ List NaiveBayesFeature (List category_in)
             }
         }
     }
-
-    std::vector<std::string> features (featuresProbabilities.size());
-    std::vector<double> probabilities (featuresProbabilities.size());
-
-    int ind = 0;
-
-    for (it = featuresProbabilities.begin(); it != featuresProbabilities.end(); ++it) {
-        features[ind] = it->first;
-        probabilities[ind] = it->second;
-        ind ++;
-    }
-#ifdef DEBUG
-    printf ("DEBUG NaiveBayesFeature: %d\n", caseCount);
-#endif
-    return List::create (_["features"] = features,
-                         _["probabilities"] = probabilities,
-                         _["zero"] = zeroOccurrence, // To be removed
+    return List::create (_["featuresProbabilities"] = featuresProbabilities,
                          _["caseCount"] = caseCount);
     END_RCPP
 }
 
 /**
- * @brief  Creates a training model
+ * @brief  Creates a training model from @a categories
  *
  * @param categories a list of category, each category consists of a list of
  * observations
@@ -72,32 +52,22 @@ List NaiveBayesFeature (List category_in)
 SEXP NaiveBayesTrain (SEXP categories_in)
 {
     BEGIN_RCPP
-
     List categories (categories_in); //conversion
     int categoryCount = categories.size();
     List featuresList (categoryCount);
     std::vector<double> prior (categoryCount);
-
-    double total = 0.0f;// it's integer actually
+    double total = 0.0f;
     for (int i = 0; i < categoryCount; i++) {
         List category = NaiveBayesFeature (categories[i]);
         featuresList[i] = category;
         prior[i] = as<int> (category["caseCount"]);
         total += prior[i];
     }
-
-    // calculate prior
     for (int i = 0; i < categoryCount; ++i) {
-#ifdef DEBUG
-        printf ("DEBUG NaiveBayesTrain: %f\n", prior[i]);
-#endif
         prior[i] /= total;
     }
-
-    // well, need correct names
-    // categories could be ignored
     List z = List::create (_["prior"] = prior,
-                           _["features"] = featuresList,
+                           _["featuresList"] = featuresList,
                            _["categories"] = categoryCount);
     z.attr ("class") = "RcppNaiveBayes";
     return z;
@@ -106,52 +76,43 @@ SEXP NaiveBayesTrain (SEXP categories_in)
 
 
 /**
- * @brief Predict the category from NB for unknown
+ * @brief Predict the category from @a NBT_in for @a unknown_in observation
  *
- * @param NB a RcppNaiveBayes class
- * @param unknown an observations to classify
- * @return SEXP a list of probabilities and a name of highest score
+ * @param NBT_in a NaiveBayesTrain class
+ * @param unknown_in a string vector
+ * @return SEXP a list of probabilities called scores
  **/
 
 SEXP NaiveBayesPredict (SEXP NBT_in, SEXP unknown_in)
 {
     BEGIN_RCPP
     List NBT (NBT_in);
-    std::vector<std::string> unknown = as<std::vector<std::string> > (unknown_in);
+    std::vector<std::string> unknown =
+        as<std::vector<std::string> > (unknown_in);
     std::vector<std::string>::iterator  unknown_it;
-    std::vector<double> prior = NBT["prior"];
-    List featuresList = NBT["features"];
+    std::vector<double> scores = as<std::vector<double> > (NBT["prior"]);
+    List featuresList = NBT["featuresList"];
     int categoryCount = as<int> (NBT["categories"]);
-    double zero = 0.0f;
-
-    std::vector<double> scores (categoryCount);
-
-    // This is a short-term loop, as categoriesCount is assumed to be less than 100 in practice
+    double zero = 0.0;
     for (int i = 0; i < categoryCount; ++i) {
-
-        scores[i] = prior[i];
         List thefeature = featuresList[i];
-        std::vector<std::string> features = thefeature["features"];
-        std::vector<double> probabilities = thefeature["probabilities"];
-        zero = as<double> (thefeature["zero"]);
-        for (unknown_it = unknown.begin(); unknown_it != unknown.end();
-                ++unknown_it) {
-            // features.size() may be too large!
+        zero = 1 / as<double> (thefeature["caseCount"]);
+        List thefeaturesProbabilities = thefeature["featuresProbabilities"];
+        StringVector nam = thefeaturesProbabilities.names();
+        std::vector<std::string> features = as<std::vector<std::string> > (nam);
+        for (unknown_it = unknown.begin();
+                unknown_it != unknown.end(); ++unknown_it) {
             for (int j = 0; j < features.size(); ++j) {
-                // string compare is somewhat slow!
                 if (features[j].compare (*unknown_it) == 0) {
-                    scores[i] *= probabilities[j];
-                    goto ENDCOMPARE;
+                    scores[i] *= as<double> (thefeaturesProbabilities[j]);
+                    goto END;
                 }
             }
             scores[i] *= zero;
-        ENDCOMPARE:; //
+        END:;
         }
-
     }
-
     List z = List::create (_["scores"] = scores);
-
     return z;
     END_RCPP
 }
