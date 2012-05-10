@@ -1,0 +1,10 @@
+Package: RcppNaiveBayes
+Type: Package
+Title: Naive Bayes Classifier for corpora
+Version: 0.1
+Date: 2012-05-06
+Authors@R: c(person("Yan","Liebin",role=c("aut","cre"),email="yanlb@ucweb.com"))
+Description: A naive Naive Bayesian Classifier for corpora
+License: GPL-2
+Depends: Rcpp (>= 0.9.0)
+LinkingTo: Rcpp
