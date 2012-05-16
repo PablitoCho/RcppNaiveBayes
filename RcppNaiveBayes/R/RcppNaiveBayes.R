@@ -25,13 +25,24 @@ NaiveBayesPredict <- function(x,y){
     if(is.character(y)){
         z <- .Call("NaiveBayesPredict", x, y, 0L, PACKAGE = "RcppNaiveBayes" )
     } else if (is.list(y) && length(y) > 0 && is.character(y[[1]])) {
-        z <-.Call( "NaiveBayesPredict", x, y, 1L, PACKAGE = "RcppNaiveBayes" )
+        z <- .Call( "NaiveBayesPredict", x, y, 1L, PACKAGE = "RcppNaiveBayes" )
     } else {
         stop( "Requires a list of string vectors or a string vector" )
     }
     w <- list(scores=z,predicted=sapply(z, which.max))
+    ## TODO confusion matrix
     attr (w, "class") <- "RcppNaiveBayesPredict";
     w
+}
+
+NaiveBayesConfusion <- function(x){
+    ## stopifnot(class(x) == "RcppNaiveBayesPredict")
+    ## x[[i]] <- NaiveBayesPredict(model,catedata[[i]])
+    y <- length(x)
+    M <- matrix(0,nrow=y,ncol=y)
+    for (i in 1:y)
+        M[i,] <- sapply(1:y, function(xx) sum(x[[i]]$predicted == xx))
+    M
 }
 
 NaiveBayesUpdate <- function(x,y){
