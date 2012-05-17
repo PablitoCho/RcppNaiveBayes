@@ -22,7 +22,7 @@ List NaiveBayesWordsFreq (List corpus_in)
         std::vector<std::string> texts =
             as<std::vector<std::string> > (corpus_in[i]);
         std::sort (texts.begin(), texts.end());
-        for (text_it= texts.begin(); text_it != texts.end(); ++text_it) {
+        for (text_it = texts.begin(); text_it != texts.end(); ++text_it) {
             it = wordsFrequencies.find (*text_it);
             if (it != wordsFrequencies.end()) {
                 it->second ++;
@@ -65,7 +65,7 @@ SEXP NaiveBayesTrain (SEXP corpora_in)
 }
 
 
-SEXP NaiveBayesPredict (List wordsList_in, int categoryCount_in,
+SEXP NaiveBayesPredict (const List& wordsList_in, int categoryCount_in,
                         int factor_in, SEXP unknown_in)
 {
     //BEGIN_RCPP
@@ -84,13 +84,12 @@ SEXP NaiveBayesPredict (List wordsList_in, int categoryCount_in,
     volatile long double s = 0.0;
     volatile int corpusSize = 0;
     for (int i = 0; i < categoryCount_in; ++i) {
-        List wordsFreqTable = wordsList_in[i];
-        corpusSize = as<int> (wordsFreqTable["corpusSize"]);
-// s = corpusSize;
         s = 1.0;
+        List wordsFreqTable = wordsList_in[i];
         List wordsFrequencies = wordsFreqTable["wordsFrequencies"];
-        StringVector nam = wordsFrequencies.names();
-        std::vector<std::string> words = as<std::vector<std::string> > (nam);
+        corpusSize = as<int> (wordsFreqTable["corpusSize"]);
+        std::vector<std::string> words =
+            as<std::vector<std::string> > (wordsFrequencies.names());
         /**
          * As unknown is sorted as well as words by std::sort, if unknown_it
          * matches words_it then the next to unknown_it should attempt to match
@@ -98,16 +97,19 @@ SEXP NaiveBayesPredict (List wordsList_in, int categoryCount_in,
         **/
         words_cursor = words.begin();
         for (unknown_it = unknown.begin();
-                unknown_it != unknown.end(); ++unknown_it) {
+                unknown_it != unknown.end();
+                ++unknown_it) {
             for (words_it = words_cursor;
-                    words_it != words.end(); ++words_it) {
+                    words_it != words.end();
+                    ++words_it) {
                 if (*words_it == *unknown_it) {
+                    // NOTE must use `as' to get a proper value,
+                    // other wise 1 obtained
                     s *= (as<long double> (wordsFrequencies[*words_it]));
                     words_cursor = words_it;
                     break;
                 }
             }
-// s /= corpusSize;
         }
         // not use std::pow
         s /= (pow (corpusSize, unknown.size() - 1) * factor_in);
