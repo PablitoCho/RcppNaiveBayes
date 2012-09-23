@@ -36,13 +36,16 @@ NaiveBayesPredict <- function(x,y){
 }
 
 NaiveBayesConfusion <- function(x){
-    ## stopifnot(class(x) == "RcppNaiveBayesPredict")
-    ## x[[i]] <- NaiveBayesPredict(model,catedata[[i]])
-    y <- length(x)
-    M <- matrix(0,nrow=y,ncol=y)
+    stopifnot(is.matrix(x) || is.list(x))
+    if (is.matrix(x))
+        z <- lapply(seq_along(nrow(x)),function(xx) x[xx,])
+    else
+        z <- x
+    y <- length(z)
+    w <- matrix(0,nrow=y,ncol=y)
     for (i in 1:y)
-        M[i,] <- sapply(1:y, function(xx) sum(x[[i]]$predicted == xx))
-    M
+        w[i,] <- sapply(1:y, function(xx) sum(z[[xx]]$predicted == i))
+    w
 }
 
 NaiveBayesUpdate <- function(x,y){
